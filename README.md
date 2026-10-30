@@ -6,7 +6,7 @@ Per-route Core Web Vitals for single-page apps, reported into [Umami](https://um
 
 A small server job asks Umami for your most visited paths of the last 30 days. It then writes one static JavaScript file. Your pages load that file next to the Umami tracker. On those paths it measures LCP, CLS and INP for every soft navigation (client-side route change) and sends the values back to Umami as events.
 
-The idea follows the Sentry article [Measuring soft navigation web vitals](https://blog.sentry.io/measuring-soft-navigation-web-vitals/) (October 2026). This project is not affiliated with Sentry.
+
 
 ## Contents
 
