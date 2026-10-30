@@ -1,6 +1,6 @@
 // Reads the most visited paths of the last 30 days from Umami and writes a
 // browser script that reports soft navigation web vitals for those paths back to Umami.
-import { writeFile, readFile, mkdir } from 'node:fs/promises';
+import { writeFile, readFile, mkdir, rename } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +38,12 @@ export async function topPaths(env, now = Date.now()) {
   });
   if (!res.ok) throw new Error(`Umami metrics failed: ${res.status} ${await res.text()}`);
   // Response rows are { x: path, y: views }; x is null for unknown paths.
-  return (await res.json()).filter((r) => r.x).map((r) => r.x);
+  return (await res.json()).filter((r) => r.x).map((r) => trimSlash(r.x));
+}
+
+// Umami may store /pricing while the browser reports /pricing/ (REMOVE_TRAILING_SLASH).
+function trimSlash(path) {
+  return path.replace(/(.)\/+$/, '$1');
 }
 
 // Runs in the browser after the web-vitals IIFE, which defines self.webVitals.
@@ -47,7 +52,7 @@ export function clientScript(paths) {
   var TOP = new Set(${JSON.stringify(paths)});
   function send(metric) {
     // Metrics can arrive after the user moved on, so the URL comes from the metric, not location.
-    var path = new URL(metric.navigationURL || location.href).pathname;
+    var path = new URL(metric.navigationURL || location.href).pathname.replace(/(.)\\/+$/, '$1');
     if (!TOP.has(path) || !window.umami) return;
     window.umami.track(function (props) {
       return Object.assign({}, props, {
@@ -67,7 +72,7 @@ export function clientScript(paths) {
   wv.onLCP(send, soft);
   wv.onCLS(send, soft);
   wv.onINP(send, soft);
-  // TTFB and FCP only make sense for page loads.
+  // TTFB and FCP only for page loads, as in Sentry v11: soft navigation TTFB is always 0.
   wv.onTTFB(send);
   wv.onFCP(send);
 })();
@@ -83,7 +88,9 @@ export async function main(env = process.env) {
   const iife = join(dirname(createRequire(import.meta.url).resolve('web-vitals')), 'web-vitals.iife.js');
   const out = env.OUT_FILE || 'out/soft-nav-vitals.js';
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, `${await readFile(iife, 'utf8')}\n${clientScript(paths)}`);
+  // Write then rename, so the web server never serves a half-written file.
+  await writeFile(`${out}.tmp`, `${await readFile(iife, 'utf8')}\n${clientScript(paths)}`);
+  await rename(`${out}.tmp`, out);
   console.log(`Wrote ${out} for ${paths.length} paths`);
   return paths;
 }

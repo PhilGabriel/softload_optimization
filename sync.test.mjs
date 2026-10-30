@@ -12,7 +12,7 @@ test('fetches top paths from a fake Umami and writes the script', async () => {
   const server = createServer((req, res) => {
     seen.push(req);
     if (req.url === '/api/auth/login') return res.end(JSON.stringify({ token: 't0k' }));
-    res.end(JSON.stringify([{ x: '/', y: 50 }, { x: null, y: 3 }, { x: '/pricing', y: 20 }]));
+    res.end(JSON.stringify([{ x: '/', y: 50 }, { x: null, y: 3 }, { x: '/pricing/', y: 20 }]));
   });
   await new Promise((r) => server.listen(0, r));
   const out = join(await mkdtemp(join(tmpdir(), 'snv-')), 'vitals.js');
@@ -55,12 +55,14 @@ test('client reports only top paths, per navigation type', () => {
   assert.equal(opts.TTFB, undefined);
   handlers.LCP({ name: 'LCP', value: 812.4, rating: 'good', navigationType: 'soft-navigation', navigationURL: 'https://site.test/pricing?a=1' });
   handlers.CLS({ name: 'CLS', value: 0.017, rating: 'good', navigationType: 'navigate', navigationURL: 'https://site.test/pricing' });
+  handlers.FCP({ name: 'FCP', value: 300, rating: 'good', navigationType: 'navigate', navigationURL: 'https://site.test/pricing/' });
   handlers.INP({ name: 'INP', value: 90, rating: 'good', navigationType: 'soft-navigation', navigationURL: 'https://site.test/not-top' });
 
-  assert.equal(tracked.length, 2);
+  assert.equal(tracked.length, 3);
   assert.deepEqual(JSON.parse(JSON.stringify(tracked[0])), {
     website: 'w', url: '/pricing', name: 'web-vital',
     data: { metric: 'LCP', value: 812, rating: 'good', navigationType: 'soft-navigation' },
   });
   assert.equal(tracked[1].data.value, 17);
+  assert.equal(tracked[2].url, '/pricing');
 });

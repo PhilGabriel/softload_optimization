@@ -36,7 +36,7 @@ docker build -t softload .
 ```
 
 ```bash
-docker run --rm --env-file .env -v /var/www/static:/data softload
+docker run --rm --user "$(stat -c %u:%g /var/www/static)" --env-file .env -v /var/www/static:/data softload
 ```
 
 Ohne Docker (Node 22):
@@ -45,15 +45,15 @@ Ohne Docker (Node 22):
 npm ci && UMAMI_API_URL=... UMAMI_WEBSITE_ID=... UMAMI_API_KEY=... npm run sync
 ```
 
-Der Container läuft einmal und beendet sich. Für tägliche Aktualisierung ein Cron-Eintrag:
+Der Container läuft als Nutzer `node` (uid 1000). `--user` übernimmt den Besitzer des Zielordners, sonst scheitert das Schreiben mit EACCES. Der Container läuft einmal und beendet sich. Für tägliche Aktualisierung ein Cron-Eintrag, hier für einen Ordner von `www-data` (33:33):
 
 ```
-15 3 * * * docker run --rm --env-file /opt/softload/.env -v /var/www/static:/data softload
+15 3 * * * docker run --rm --user 33:33 --env-file /opt/softload/.env -v /var/www/static:/data softload
 ```
 
 ## Einbinden
 
-Nach dem Umami-Tracker auf jeder Seite:
+Nach dem Umami-Tracker auf jeder Seite. Beide Skripte brauchen `defer`, der Tracker steht zuerst. Mit `async` oder Tag-Manager kann `window.umami` beim ersten FCP-Wert noch fehlen, dann geht dieser Wert verloren.
 
 ```html
 <script defer src="https://umami.example.com/script.js" data-website-id="..."></script>
