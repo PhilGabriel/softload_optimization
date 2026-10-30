@@ -38,7 +38,8 @@ export async function topPaths(env, now = Date.now()) {
   });
   if (!res.ok) throw new Error(`Umami metrics failed: ${res.status} ${await res.text()}`);
   // Response rows are { x: path, y: views }; x is null for unknown paths.
-  return (await res.json()).filter((r) => r.x).map((r) => trimSlash(r.x));
+  const skip = env.EXCLUDE_REGEX ? new RegExp(env.EXCLUDE_REGEX) : null;
+  return (await res.json()).filter((r) => r.x).map((r) => trimSlash(r.x)).filter((p) => !skip?.test(p));
 }
 
 // Umami may store /pricing while the browser reports /pricing/ (REMOVE_TRAILING_SLASH).

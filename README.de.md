@@ -177,6 +177,7 @@ Alle Einstellungen sind Umgebungsvariablen.
 | `UMAMI_API_KEY` | entweder | API-Key. Geht als `x-umami-api-key` und als Bearer-Token raus. |
 | `UMAMI_USERNAME`, `UMAMI_PASSWORD` | oder | Login für self-hosted Umami. Konten mit Zwei-Faktor-Login brauchen einen API-Key. |
 | `TOP_N` | nein | Anzahl der Pfade, Standard `20` |
+| `EXCLUDE_REGEX` | nein | Regulärer Ausdruck; passende Pfade fehlen in der Liste, z. B. `^/(admin|login)(/|$)` |
 | `OUT_FILE` | nein | Ausgabedatei. Standard `out/soft-nav-vitals.js`, im Container `/data/soft-nav-vitals.js` |
 | `CF_ZONE_ID`, `CF_API_TOKEN`, `CF_PURGE_URL` | nein | Cloudflare-Cache leeren, siehe [Hinter Cloudflare](#hinter-cloudflare) |
 
