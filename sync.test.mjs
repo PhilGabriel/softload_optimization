@@ -31,6 +31,7 @@ test('fetches top paths from a fake Umami and writes the script', async () => {
     assert.equal(+metrics.searchParams.get('endAt') - +metrics.searchParams.get('startAt'), 30 * 864e5);
     assert.equal(seen[1].headers.authorization, 'Bearer t0k');
     const file = await readFile(out, 'utf8');
+    assert.match(file, /^\/\*! web-vitals v\d+\.\d+\.\d+ \| Copyright 2020 Google LLC \| Apache-2\.0/);
     assert.match(file, /var webVitals=/);
     assert.match(file, /\["\/","\/pricing"\]/);
   } finally {
@@ -53,11 +54,12 @@ test('client reports only top paths, per navigation type', () => {
 
   assert.equal(JSON.stringify(opts.LCP), '{"reportSoftNavs":true}');
   assert.equal(opts.TTFB, undefined);
-  handlers.LCP({ name: 'LCP', value: 812.4, rating: 'good', navigationType: 'soft-navigation', navigationURL: 'https://site.test/pricing?a=1' });
-  handlers.CLS({ name: 'CLS', value: 0.017, rating: 'good', navigationType: 'navigate', navigationURL: 'https://site.test/pricing' });
-  handlers.FCP({ name: 'FCP', value: 300, rating: 'good', navigationType: 'navigate', navigationURL: 'https://site.test/pricing/' });
-  handlers.INP({ name: 'INP', value: 90, rating: 'good', navigationType: 'soft-navigation', navigationURL: 'https://site.test/not-top' });
+  handlers.LCP({ id: 'v-LCP', name: 'LCP', value: 812.4, rating: 'good', navigationType: 'soft-navigation', navigationURL: 'https://site.test/pricing?a=1' });
+  handlers.CLS({ id: 'v-CLS', name: 'CLS', value: 0.017, rating: 'good', navigationType: 'navigate', navigationURL: 'https://site.test/pricing' });
+  handlers.FCP({ id: 'v-FCP', name: 'FCP', value: 300, rating: 'good', navigationType: 'navigate', navigationURL: 'https://site.test/pricing/' });
+  handlers.INP({ id: 'v-INP', name: 'INP', value: 90, rating: 'good', navigationType: 'soft-navigation', navigationURL: 'https://site.test/not-top' });
 
+  handlers.CLS({ id: 'v-CLS', name: 'CLS', value: 0.2, rating: 'poor', navigationType: 'navigate', navigationURL: 'https://site.test/pricing' });
   assert.equal(tracked.length, 3);
   assert.deepEqual(JSON.parse(JSON.stringify(tracked[0])), {
     website: 'w', url: '/pricing', name: 'web-vital',

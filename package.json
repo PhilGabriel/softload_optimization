@@ -8,5 +8,11 @@
   },
   "dependencies": {
     "web-vitals": "6.2.3"
+  },
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Per-route soft navigation web vitals for single-page apps, reported into Umami",
+  "engines": {
+    "node": ">=22"
   }
 }

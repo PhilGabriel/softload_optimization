@@ -50,10 +50,13 @@ function trimSlash(path) {
 export function clientScript(paths) {
   return `(function () {
   var TOP = new Set(${JSON.stringify(paths)});
+  var SENT = new Set();
   function send(metric) {
     // Metrics can arrive after the user moved on, so the URL comes from the metric, not location.
     var path = new URL(metric.navigationURL || location.href).pathname.replace(/(.)\\/+$/, '$1');
-    if (!TOP.has(path) || !window.umami) return;
+    // CLS and INP are re-reported on every tab hide; Umami events can't be updated, so send once per metric id.
+    if (!TOP.has(path) || !window.umami || SENT.has(metric.id)) return;
+    SENT.add(metric.id);
     window.umami.track(function (props) {
       return Object.assign({}, props, {
         url: path,
@@ -103,11 +106,15 @@ export async function main(env = process.env) {
   }
   env = { ...env, UMAMI_API_URL: env.UMAMI_API_URL.replace(/\/+$/, '') };
   const paths = await topPaths(env);
-  const iife = join(dirname(createRequire(import.meta.url).resolve('web-vitals')), 'web-vitals.iife.js');
+  const dist = dirname(createRequire(import.meta.url).resolve('web-vitals'));
+  const { version } = JSON.parse(await readFile(join(dist, '..', 'package.json'), 'utf8'));
+  // Apache-2.0 requires the notice to travel with the bundled copy.
+  const notice = `/*! web-vitals v${version} | Copyright 2020 Google LLC | Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 */`;
   const out = env.OUT_FILE || 'out/soft-nav-vitals.js';
   await mkdir(dirname(out), { recursive: true });
   // Write then rename, so the web server never serves a half-written file.
-  await writeFile(`${out}.tmp`, `${await readFile(iife, 'utf8')}\n${clientScript(paths)}`);
+  const iife = await readFile(join(dist, 'web-vitals.iife.js'), 'utf8');
+  await writeFile(`${out}.tmp`, `${notice}\n${iife}\n${clientScript(paths)}`);
   await rename(`${out}.tmp`, out);
   console.log(`Wrote ${out} for ${paths.length} paths`);
   if (await purgeCloudflare(env)) console.log(`Purged ${env.CF_PURGE_URL} from Cloudflare`);
