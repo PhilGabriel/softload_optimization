@@ -5,7 +5,7 @@ import { readFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
-import { main, clientScript } from './sync.mjs';
+import { main, clientScript, purgeCloudflare } from './sync.mjs';
 
 test('fetches top paths from a fake Umami and writes the script', async () => {
   const seen = [];
@@ -65,4 +65,23 @@ test('client reports only top paths, per navigation type', () => {
   });
   assert.equal(tracked[1].data.value, 17);
   assert.equal(tracked[2].url, '/pricing');
+});
+
+test('Cloudflare purge is optional and needs all three variables', async (t) => {
+  const calls = [];
+  let reply = { ok: true, json: async () => ({ success: true }) };
+  t.mock.method(globalThis, 'fetch', async (url, init) => { calls.push([url, init]); return reply; });
+
+  assert.equal(await purgeCloudflare({}), false);
+  await assert.rejects(purgeCloudflare({ CF_ZONE_ID: 'z' }), /needs all of/);
+  assert.equal(calls.length, 0);
+
+  const env = { CF_ZONE_ID: 'z1', CF_API_TOKEN: 'tok', CF_PURGE_URL: 'https://site.test/static/soft-nav-vitals.js' };
+  assert.equal(await purgeCloudflare(env), true);
+  assert.equal(calls[0][0], 'https://api.cloudflare.com/client/v4/zones/z1/purge_cache');
+  assert.equal(calls[0][1].headers.authorization, 'Bearer tok');
+  assert.deepEqual(JSON.parse(calls[0][1].body), { files: [env.CF_PURGE_URL] });
+
+  reply = { ok: false, status: 403, json: async () => ({ success: false, errors: [{ code: 10000, message: 'Authentication error' }] }) };
+  await assert.rejects(purgeCloudflare(env), /403.*Authentication error/);
 });
