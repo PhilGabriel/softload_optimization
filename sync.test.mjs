@@ -87,3 +87,18 @@ test('Cloudflare purge is optional and needs all three variables', async (t) => 
   reply = { ok: false, status: 403, json: async () => ({ success: false, errors: [{ code: 10000, message: 'Authentication error' }] }) };
   await assert.rejects(purgeCloudflare(env), /403.*Authentication error/);
 });
+
+test('EXCLUDE_REGEX removes matching paths from the list', async () => {
+  const server = createServer((req, res) => {
+    res.end(JSON.stringify([{ x: '/', y: 5 }, { x: '/admin/users', y: 4 }, { x: '/login', y: 3 }]));
+  });
+  await new Promise((r) => server.listen(0, r));
+  try {
+    const { topPaths } = await import('./sync.mjs');
+    const env = { UMAMI_API_URL: `http://localhost:${server.address().port}/api`, UMAMI_WEBSITE_ID: 's', UMAMI_API_KEY: 'k' };
+    assert.deepEqual(await topPaths({ ...env, EXCLUDE_REGEX: '^/(admin|login)(/|$)' }), ['/']);
+    assert.deepEqual(await topPaths(env), ['/', '/admin/users', '/login']);
+  } finally {
+    server.close();
+  }
+});
