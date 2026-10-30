@@ -25,6 +25,7 @@ Soft-Navigationen meldet nur Chromium ab Version 151. Andere Browser liefern wei
 | `UMAMI_API_KEY` | entweder | API-Key |
 | `UMAMI_USERNAME`, `UMAMI_PASSWORD` | oder | Login für self-hosted ohne Zwei-Faktor |
 | `TOP_N` | nein | `20` (Standard) |
+| `CF_ZONE_ID`, `CF_API_TOKEN`, `CF_PURGE_URL` | nein | Cloudflare-Cache leeren, siehe unten |
 | `OUT_FILE` | nein | Standard: `out/soft-nav-vitals.js`, im Container `/data/soft-nav-vitals.js` |
 
 ## Ausführen
@@ -56,9 +57,26 @@ Der Container läuft als Nutzer `node` (uid 1000). `--user` übernimmt den Besit
 Nach dem Umami-Tracker auf jeder Seite. Beide Skripte brauchen `defer`, der Tracker steht zuerst. Mit `async` oder Tag-Manager kann `window.umami` beim ersten FCP-Wert noch fehlen, dann geht dieser Wert verloren.
 
 ```html
-<script defer src="https://umami.example.com/script.js" data-website-id="..."></script>
-<script defer src="/static/soft-nav-vitals.js"></script>
+<script defer data-cfasync="false" src="https://umami.example.com/script.js" data-website-id="..."></script>
+<script defer data-cfasync="false" src="/static/soft-nav-vitals.js"></script>
 ```
+
+`data-cfasync="false"` schützt die Reihenfolge vor dem Cloudflare Rocket Loader. Ohne Cloudflare ignoriert der Browser das Attribut.
+
+## Hinter Cloudflare
+
+Cloudflare cacht `.js`-Dateien. Ohne Purge liefert die Edge nach dem Sync die alte Datei aus, bis die Cache-Zeit abläuft. Sind alle drei Variablen gesetzt, leert `sync.mjs` nach dem Schreiben die Datei aus dem Cache:
+
+- `CF_ZONE_ID`: Zone-ID aus der Übersicht der Domain
+- `CF_API_TOKEN`: API-Token mit der Berechtigung „Zone → Cache Purge → Purge“
+- `CF_PURGE_URL`: öffentliche URL der Datei, etwa `https://example.com/static/soft-nav-vitals.js`
+
+Fehlt eine der drei, bricht der Sync mit Exit 1 ab. Schlägt der Purge fehl, ebenso. Die neue Datei liegt dann schon auf dem Server, Cron meldet den Fehler.
+
+Bot Fight Mode und WAF können Anfragen ohne Browser blockieren:
+
+- `sync.mjs` ruft Umami am besten über die interne Adresse auf, etwa `UMAMI_API_URL=http://umami:3000/api` im selben Docker-Netz.
+- `POST /api/send` des Umami-Trackers darf keine Challenge bekommen, sonst gehen Events verloren.
 
 ## Tests
 

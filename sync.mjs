@@ -79,6 +79,24 @@ export function clientScript(paths) {
 `;
 }
 
+// Optional: purge the old file from the Cloudflare edge cache after each sync.
+export async function purgeCloudflare(env) {
+  const keys = ['CF_ZONE_ID', 'CF_API_TOKEN', 'CF_PURGE_URL'];
+  const set = keys.filter((k) => env[k]);
+  if (!set.length) return false;
+  if (set.length < keys.length) throw new Error(`Cloudflare purge needs all of ${keys.join(', ')}`);
+  const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CF_ZONE_ID}/purge_cache`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.CF_API_TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ files: [env.CF_PURGE_URL] }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.success) {
+    throw new Error(`Cloudflare purge failed: ${res.status} ${JSON.stringify(body.errors ?? body)}`);
+  }
+  return true;
+}
+
 export async function main(env = process.env) {
   for (const key of ['UMAMI_API_URL', 'UMAMI_WEBSITE_ID']) {
     if (!env[key]) throw new Error(`Missing ${key}`);
@@ -92,6 +110,7 @@ export async function main(env = process.env) {
   await writeFile(`${out}.tmp`, `${await readFile(iife, 'utf8')}\n${clientScript(paths)}`);
   await rename(`${out}.tmp`, out);
   console.log(`Wrote ${out} for ${paths.length} paths`);
+  if (await purgeCloudflare(env)) console.log(`Purged ${env.CF_PURGE_URL} from Cloudflare`);
   return paths;
 }
 
