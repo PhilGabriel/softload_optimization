@@ -1,0 +1,12 @@
+{
+  "name": "softload-optimization",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "web-vitals": "6.2.3"
+  }
+}
